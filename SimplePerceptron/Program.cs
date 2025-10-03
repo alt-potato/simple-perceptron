@@ -15,7 +15,12 @@ public class Program
         switch (args[0].ToLower())
         {
             case "xor":
-                RunXorProblem(new PerceptronArgs([2, 2, 1], random), null, 0.1, 10000);
+                RunXorProblem(
+                    new PerceptronArgs([2, 2, 1], random, ActivationFunctions.FunctionType.Sigmoid),
+                    null,
+                    0.1,
+                    10000
+                );
                 break;
             default:
                 Console.WriteLine("Invalid problem type.");
@@ -39,8 +44,7 @@ public class Program
         // setup default values
         args ??= new PerceptronArgs([2, 2, 1], null);
         int[] structure = args.Structure ?? [2, 2, 1];
-        ActivationFunctions.FunctionType[] activations =
-            args.Activations ?? [ActivationFunctions.FunctionType.Sigmoid];
+        ActivationFunctions.FunctionType[] activations = args.Activations;
 
         Perceptron perceptron = new(structure, args.Random, activations);
 
