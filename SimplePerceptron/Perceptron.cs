@@ -144,6 +144,29 @@ public class Layer
     public List<Neuron> Neurons { get; set; } = [];
 }
 
+/// <summary>
+/// Represents a multi-layer perceptron (MLP) neural network.
+///
+/// To use, first create a new instance of the Perceptron class with the desired structure and activation functions.
+/// <code>
+/// Perceptron perceptron = new Perceptron([2, 3, 1], new Random(), ActivationFunctions.FunctionType.Sigmoid);
+/// </code>
+///
+/// Then, use the Train method to train the network on a dataset.
+/// <code>
+/// perceptron.Train(data, learningRate, epochs);
+/// </code>
+///
+/// Finally, use the Predict method to get the output of the network for a given input.
+/// <code>
+/// double[] outputs = perceptron.Predict(inputs);
+/// </code>
+///
+/// Or, use the selector method to get the output of the network for a given input, where T is the type of the output.
+/// <code>
+/// T[] output = perceptron.Predict(inputs, selector);
+/// </code>
+/// </summary>
 public class Perceptron
 {
     public List<Layer> Layers { get; set; } = [];
