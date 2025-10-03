@@ -5,21 +5,49 @@ public class Program
     public static void Main(string[] args)
     {
         Random random = new();
-        int[] structure = [2, 2, 1];
-        ActivationFunctions.FunctionType[] activations = [ActivationFunctions.FunctionType.Sigmoid];
 
-        Perceptron perceptron = new(structure, random, activations);
+        if (args.Length < 1)
+        {
+            Console.WriteLine("Please provide a problem type.");
+            return;
+        }
 
-        List<(double[] inputs, double[] targets)> data =
-        [
-            ([0, 0], [0]),
-            ([0, 1], [1]),
-            ([1, 0], [1]),
-            ([1, 1], [0]),
-        ];
+        switch (args[0].ToLower())
+        {
+            case "xor":
+                RunXorProblem(new PerceptronArgs([2, 2, 1], random), null, 0.1, 10000);
+                break;
+            default:
+                Console.WriteLine("Invalid problem type.");
+                break;
+        }
+    }
 
-        // training arc
-        perceptron.Train(data, 0.1, 10000);
+    public record PerceptronArgs(
+        int[]? Structure,
+        Random? Random,
+        params ActivationFunctions.FunctionType[] Activations
+    );
+
+    public static void RunXorProblem(
+        PerceptronArgs? args = null,
+        List<(double[] inputs, double[] targets)>? data = null,
+        double learningRate = 0.1,
+        int epochs = 10000
+    )
+    {
+        // setup default values
+        args ??= new PerceptronArgs([2, 2, 1], null);
+        int[] structure = args.Structure ?? [2, 2, 1];
+        ActivationFunctions.FunctionType[] activations =
+            args.Activations ?? [ActivationFunctions.FunctionType.Sigmoid];
+
+        Perceptron perceptron = new(structure, args.Random, activations);
+
+        data ??= [([0, 0], [0]), ([0, 1], [1]), ([1, 0], [1]), ([1, 1], [0])];
+
+        // training
+        perceptron.Train(data, learningRate, epochs);
 
         // testing
         foreach (var (inputs, targets) in data)
