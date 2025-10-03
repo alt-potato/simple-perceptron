@@ -1,67 +1,82 @@
-﻿namespace SimplePerceptron;
+﻿using System.Security.Cryptography;
+using static SimplePerceptron.ProblemDefinitions;
+
+namespace SimplePerceptron;
 
 public class Program
 {
     public static void Main(string[] args)
     {
-        Random random = new();
-
         if (args.Length < 1)
         {
             Console.WriteLine("Please provide a problem type.");
             return;
         }
 
-        switch (args[0].ToLower())
+        string problem = args[0].Trim().ToLower();
+        if (!Problems.TryGetValue(problem, out PerceptronProblemConfig? value))
         {
-            case "xor":
-                RunXorProblem(
-                    new PerceptronArgs([2, 2, 1], random, ActivationFunctions.FunctionType.Sigmoid),
-                    null,
-                    0.1,
-                    10000
-                );
-                break;
-            default:
-                Console.WriteLine("Invalid problem type.");
-                break;
+            Console.WriteLine($"Unknown problem type: {problem}");
+            Console.WriteLine("Available problems: " + string.Join(", ", Problems.Keys));
+            return;
         }
+
+        RunProblem(value);
     }
 
-    public record PerceptronArgs(
-        int[]? Structure,
-        Random? Random,
-        params ActivationFunctions.FunctionType[] Activations
-    );
-
-    public static void RunXorProblem(
-        PerceptronArgs? args = null,
-        List<(double[] inputs, double[] targets)>? data = null,
-        double learningRate = 0.1,
-        int epochs = 10000
-    )
+    public static void RunProblem(PerceptronProblemConfig config, Random? random = null)
     {
-        // setup default values
-        args ??= new PerceptronArgs([2, 2, 1], null);
-        int[] structure = args.Structure ?? [2, 2, 1];
-        ActivationFunctions.FunctionType[] activations = args.Activations;
-
-        Perceptron perceptron = new(structure, args.Random, activations);
-
-        data ??= [([0, 0], [0]), ([0, 1], [1]), ([1, 0], [1]), ([1, 1], [0])];
+        Perceptron perceptron = new(config.Structure, random, config.Activations);
 
         // training
-        perceptron.Train(data, learningRate, epochs);
+        perceptron.Train(config.TrainingData, config.LearningRate, config.Epochs);
 
         // testing
-        foreach (var (inputs, targets) in data)
+        // uses training data and testing data
+        foreach (
+            (double[] inputs, double[] targets) in config.TrainingData.Concat(
+                config.TestingData ?? []
+            )
+        )
         {
             double[] rawResult = perceptron.Predict(inputs);
-            int[] finalResult = perceptron.Predict(inputs, x => x > 0.5 ? 1 : 0);
+            object[]? finalResult = config.Selector is null
+                ? null
+                : perceptron.Predict(inputs, config.Selector);
 
-            Console.WriteLine(
-                $"{inputs[0]} XOR {inputs[1]} -> {rawResult[0]:F5} (Predicted: {finalResult[0]}, Target: {targets[0]})"
-            );
+            // build input string
+            string inputString = config.InputFormat is null
+                ? string.Join(" ", inputs)
+                : string.Format(config.InputFormat, [.. inputs]);
+
+            // build output string
+            string outputString = "";
+            if (config.OutputFormat is not null)
+            {
+                // use given output format
+                outputString = string.Format(
+                    config.OutputFormat,
+                    string.Join(" ", rawResult.Select(r => r.ToString("F4"))),
+                    string.Join(" ", finalResult ?? []),
+                    string.Join(" ", targets)
+                );
+            }
+            else
+            {
+                // use default:
+                // "{raw} (Actual: {final}, Predicted: {targets})"
+                // or
+                // "{raw} (Predicted: {targets})"
+                string rawResultString = string.Join(" ", rawResult.Select(r => r.ToString("F4")));
+                string finalResultString = finalResult is null
+                    ? ""
+                    : $"Actual: {string.Join(" ", finalResult)}, ";
+                string targetString = $"Predicted: {string.Join(" ", targets)}";
+
+                outputString = $"{rawResultString} ({finalResultString}{targetString})";
+            }
+
+            Console.WriteLine($"{inputString} -> {outputString}");
         }
     }
 }
