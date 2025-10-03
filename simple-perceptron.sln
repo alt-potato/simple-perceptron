@@ -1,19 +1,46 @@
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimplePerceptron", "SimplePerceptron\SimplePerceptron.csproj", "{7425B058-B0A4-78D9-15BE-85CFA2FCACBA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimplePerceptron.Test", "SimplePerceptron.Test\SimplePerceptron.Test.csproj", "{41203431-75C1-4F0C-A5C2-E20372BA6369}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
 		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{7425B058-B0A4-78D9-15BE-85CFA2FCACBA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{7425B058-B0A4-78D9-15BE-85CFA2FCACBA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7425B058-B0A4-78D9-15BE-85CFA2FCACBA}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{7425B058-B0A4-78D9-15BE-85CFA2FCACBA}.Debug|x64.Build.0 = Debug|Any CPU
+		{7425B058-B0A4-78D9-15BE-85CFA2FCACBA}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7425B058-B0A4-78D9-15BE-85CFA2FCACBA}.Debug|x86.Build.0 = Debug|Any CPU
 		{7425B058-B0A4-78D9-15BE-85CFA2FCACBA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7425B058-B0A4-78D9-15BE-85CFA2FCACBA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7425B058-B0A4-78D9-15BE-85CFA2FCACBA}.Release|x64.ActiveCfg = Release|Any CPU
+		{7425B058-B0A4-78D9-15BE-85CFA2FCACBA}.Release|x64.Build.0 = Release|Any CPU
+		{7425B058-B0A4-78D9-15BE-85CFA2FCACBA}.Release|x86.ActiveCfg = Release|Any CPU
+		{7425B058-B0A4-78D9-15BE-85CFA2FCACBA}.Release|x86.Build.0 = Release|Any CPU
+		{41203431-75C1-4F0C-A5C2-E20372BA6369}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{41203431-75C1-4F0C-A5C2-E20372BA6369}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{41203431-75C1-4F0C-A5C2-E20372BA6369}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{41203431-75C1-4F0C-A5C2-E20372BA6369}.Debug|x64.Build.0 = Debug|Any CPU
+		{41203431-75C1-4F0C-A5C2-E20372BA6369}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{41203431-75C1-4F0C-A5C2-E20372BA6369}.Debug|x86.Build.0 = Debug|Any CPU
+		{41203431-75C1-4F0C-A5C2-E20372BA6369}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{41203431-75C1-4F0C-A5C2-E20372BA6369}.Release|Any CPU.Build.0 = Release|Any CPU
+		{41203431-75C1-4F0C-A5C2-E20372BA6369}.Release|x64.ActiveCfg = Release|Any CPU
+		{41203431-75C1-4F0C-A5C2-E20372BA6369}.Release|x64.Build.0 = Release|Any CPU
+		{41203431-75C1-4F0C-A5C2-E20372BA6369}.Release|x86.ActiveCfg = Release|Any CPU
+		{41203431-75C1-4F0C-A5C2-E20372BA6369}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
