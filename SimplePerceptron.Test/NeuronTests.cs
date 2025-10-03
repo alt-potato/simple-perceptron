@@ -91,8 +91,8 @@ public class NeuronTests
         var hiddenNeuronIndex = 0;
 
         // The next layer (output layer)
-        var outputNeuron1 = new Neuron(new double[] { 0.5 }, 0) { Delta = 0.1 }; // Weight from hiddenNeuron is 0.5
-        var outputNeuron2 = new Neuron(new double[] { -0.2 }, 0) { Delta = 0.2 }; // Weight from hiddenNeuron is -0.2
+        var outputNeuron1 = new Neuron([0.5], 0) { Delta = 0.1 }; // Weight from hiddenNeuron is 0.5
+        var outputNeuron2 = new Neuron([-0.2], 0) { Delta = 0.2 }; // Weight from hiddenNeuron is -0.2
         var nextLayer = new Layer { Neurons = [outputNeuron1, outputNeuron2] };
 
         // error = sum(weight * delta) = (0.5 * 0.1) + (-0.2 * 0.2) = 0.05 - 0.04 = 0.01

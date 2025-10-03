@@ -123,6 +123,20 @@ public class Neuron
         Value = ActivationFunction(sum);
         return Value;
     }
+
+    /// <summary>
+    /// Resets the weights and bias of the neuron to default values (random if rng is provided, otherwise 0.5).
+    /// </summary>
+    public void Reset(Random? random = null)
+    {
+        for (int i = 0; i < Weights.Length; i++)
+        {
+            Weights[i] = random is not null ? random.NextDouble() * 2 - 1 : 0.5;
+        }
+        Bias = random is not null ? random.NextDouble() * 2 - 1 : 0.5;
+
+        Value = 0;
+    }
 }
 
 public class Layer
@@ -270,4 +284,10 @@ public class Perceptron
             }
         }
     }
+
+    /// <summary>
+    /// Resets the values of all neurons in the network to their default values.
+    /// </summary>
+    public void Reset(Random? random = null) =>
+        Layers.ForEach(l => l.Neurons.ForEach(n => n.Reset(random)));
 }

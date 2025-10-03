@@ -27,7 +27,7 @@ public class PerceptronTests
     public void Train_ShouldLearnOrProblem()
     {
         // Arrange
-        var random = new Random(456);
+        var random = new Random(67);
         int[] structure = [2, 1]; // 2 inputs, 1 output neuron, no hidden layer
         var perceptron = new Perceptron(
             structure,
@@ -56,7 +56,7 @@ public class PerceptronTests
     public void Train_ShouldLearnXorProblem()
     {
         // Arrange
-        var random = new Random(789);
+        var random = new Random(67);
         int[] structure = [2, 2, 1]; // 2 inputs, 1 hidden layer with 2 neurons, 1 output neuron
         var perceptron = new Perceptron(
             structure,
@@ -79,5 +79,33 @@ public class PerceptronTests
         Assert.True(perceptron.Predict([0, 1])[0] > 0.5);
         Assert.True(perceptron.Predict([1, 0])[0] > 0.5);
         Assert.True(perceptron.Predict([1, 1])[0] < 0.5);
+    }
+
+    [Fact]
+    public void Reset_ShouldReinitializeWeightsAndBias()
+    {
+        // Arrange
+        var random = new Random(67);
+        int[] structure = [2, 2, 1];
+        var perceptron = new Perceptron(
+            structure,
+            random,
+            ActivationFunctions.FunctionType.Sigmoid
+        );
+
+        // Store the initial state of a neuron to compare against
+        var initialWeight = perceptron.Layers[0].Neurons[0].Weights[0];
+        var initialBias = perceptron.Layers[0].Neurons[0].Bias;
+
+        // Act
+        perceptron.Reset(); // This method will need to be implemented in the Perceptron class
+
+        // Assert
+        var resetWeight = perceptron.Layers[0].Neurons[0].Weights[0];
+        var resetBias = perceptron.Layers[0].Neurons[0].Bias;
+
+        // The weights and biases should be different after reset
+        Assert.NotEqual(initialWeight, resetWeight);
+        Assert.NotEqual(initialBias, resetBias);
     }
 }
