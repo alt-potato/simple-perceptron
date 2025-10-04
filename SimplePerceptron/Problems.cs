@@ -25,7 +25,7 @@ public static class ProblemDefinitions
         {
             "or",
             new PerceptronProblemConfig(
-                Structure: [2, 1], // Simpler structure for OR, often doesn't need a hidden layer
+                Structure: [2, 1],
                 Activations: [ActivationFunctions.FunctionType.Sigmoid],
                 TrainingData: [([0, 0], [0]), ([0, 1], [1]), ([1, 0], [1]), ([1, 1], [1])],
                 LearningRate: 0.1,
@@ -49,7 +49,7 @@ public static class ProblemDefinitions
         {
             "a^2+b",
             new PerceptronProblemConfig(
-                Structure: [2, 10, 10, 1],
+                Structure: [2, 8, 8, 1], // [2, .. Enumerable.Repeat(100, 50), 1],
                 Activations:
                 [
                     ActivationFunctions.FunctionType.LeakyReLU,
@@ -58,13 +58,14 @@ public static class ProblemDefinitions
                 TrainingData:
                 [
                     .. Enumerable
-                        .Range(0, 10)
+                        .Range(0, 20)
                         .SelectMany(a =>
                             Enumerable
-                                .Range(0, 10)
+                                .Range(0, 20)
                                 .Select(b => (new double[] { a, b }, new double[] { a * a + b }))
                         ),
                 ],
+                // [([0, 0], [0])],
                 TestingData:
                 [
                     ([0, 0], [0]),
@@ -74,8 +75,11 @@ public static class ProblemDefinitions
                     ([6, 2], [38]),
                     ([9, 3], [84]),
                 ],
-                LearningRate: 0.0002,
-                Epochs: 20000,
+                LearningRate: 1e-4,
+                Epochs: 200000,
+                GradientThreshold: 1,
+                MinWeightValue: -100,
+                MaxWeightValue: 100,
                 Selector: x => (int)(x + 0.5),
                 InputFormat: "{0}^2 + {1}"
             )

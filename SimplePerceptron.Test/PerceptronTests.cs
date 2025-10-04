@@ -336,6 +336,58 @@ public class PerceptronTests
         Assert.Equal(expectedBiasBeforeClip.ApplyClipping(minWeight, maxWeight), neuron.Bias, 5);
     }
 
+    [Fact]
+    public void Train_WithHighLearningRateAndClipping_ShouldNotProduceNaN()
+    {
+        // Arrange
+        var random = new Random(67);
+        int[] structure = [2, 2, 1];
+        var perceptron = new Perceptron(
+            structure,
+            random,
+            ActivationFunctions.FunctionType.Sigmoid
+        );
+        List<(double[] inputs, double[] targets)> data =
+        [
+            ([0, 0], [0]),
+            ([0, 1], [1]),
+            ([1, 0], [1]),
+            ([1, 1], [0]),
+        ];
+        double highLearningRate = 100.0;
+        int epochs = 100;
+        double gradientThreshold = 1.0; // Enable gradient clipping
+        double weightClipValue = 5.0; // Enable weight clipping
+
+        // Act
+        perceptron.Train(
+            data,
+            highLearningRate,
+            epochs,
+            gradientThreshold,
+            -weightClipValue,
+            weightClipValue
+        );
+
+        // Assert
+        // Check all weights and biases in the network for NaN
+        foreach (var layer in perceptron.Layers)
+        {
+            foreach (var neuron in layer.Neurons)
+            {
+                foreach (var weight in neuron.Weights)
+                {
+                    Assert.False(double.IsNaN(weight), "Weight should not be NaN.");
+                }
+                Assert.False(double.IsNaN(neuron.Bias), "Bias should not be NaN.");
+            }
+        }
+
+        // Also check if prediction results in NaN
+        var prediction = perceptron.Predict([0, 0]);
+        Assert.False(double.IsNaN(prediction[0]), "Prediction should not be NaN.");
+    }
+
     // [Fact]
     // public void Train_ShouldLearnA2PlusBProblem()
     // {

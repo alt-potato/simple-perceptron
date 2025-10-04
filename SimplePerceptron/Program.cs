@@ -4,8 +4,8 @@ namespace SimplePerceptron;
 
 public class Program
 {
-    static string OUTPUT_OVERRIDE { get; set; } = "training";
-    static string OUTPUT_MODE { get; set; } = "invalid";
+    static string OUTPUT_OVERRIDE { get; set; } = "training"; // training, testing, both
+    static string OUTPUT_MODE { get; set; } = "invalid"; // all, invalid
 
     public static void Main(string[] args)
     {
@@ -29,7 +29,7 @@ public class Program
 
     public static void RunProblem(PerceptronProblemConfig config, Random? random = null)
     {
-        Perceptron perceptron = new(config.Structure, random, config.Activations);
+        Perceptron perceptron = new(config.Structure, random, config.Activations) { Debug = true };
 
         // training
         perceptron.Train(config.TrainingData, config.LearningRate, config.Epochs);

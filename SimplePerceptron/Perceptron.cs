@@ -13,28 +13,51 @@ public static class ActivationFunctions
         Tanh,
     };
 
-    public static Func<double, double> GetActivationFunction(FunctionType type) =>
+    public static Func<double, double> GetActivationFunction(
+        FunctionType type,
+        double alpha = 0.01
+    ) =>
         type switch
         {
             FunctionType.Linear => x => x,
             FunctionType.Step => x => x > 0 ? 1 : 0,
             FunctionType.Signum => x => Math.Sign(x),
-            FunctionType.Sigmoid => x => 1 / (1 + Math.Exp(-x)),
+            FunctionType.Sigmoid => x =>
+                x >= 0 ? 1 / (1 + Math.Exp(-x)) : Math.Exp(x) / (1 + Math.Exp(x)),
             FunctionType.ReLU => x => Math.Max(0, x),
-            FunctionType.LeakyReLU => x => Math.Max(0.01 * x, x),
+            FunctionType.LeakyReLU => x => Math.Max(alpha * x, x),
             FunctionType.Tanh => Math.Tanh,
             _ => throw new NotImplementedException(),
         };
 
-    public static double GetDerivative(FunctionType type, double x) =>
+    public static double GetDerivative(FunctionType type, double x, double alpha = 0.01) =>
         type switch
         {
             FunctionType.Sigmoid => x * (1 - x),
             FunctionType.ReLU => x > 0 ? 1 : 0,
-            FunctionType.LeakyReLU => x > 0 ? 1 : 0.01,
+            FunctionType.LeakyReLU => x > 0 ? 1 : alpha,
             FunctionType.Tanh => 1 - Math.Pow(x, 2),
             _ => 1,
         };
+
+    public static double GetInitialValue(
+        this FunctionType type,
+        int inputs,
+        Random? random = null,
+        double defaultValue = 0.5
+    ) =>
+        random is null
+            ? defaultValue
+            : type switch
+            {
+                // Xavier initialization
+                FunctionType.Sigmoid or FunctionType.Tanh => (random.NextDouble() * 2 - 1)
+                    * Math.Sqrt(1.0 / inputs),
+                // He initialization
+                FunctionType.ReLU or FunctionType.LeakyReLU => (random.NextDouble() * 2 - 1)
+                    * Math.Sqrt(2.0 / inputs),
+                _ => random.NextDouble() * 2 - 1,
+            };
 
     /// <summary>
     /// Gets the derivative of the activation function of the neuron at its current value.
@@ -134,9 +157,9 @@ public class Neuron
         for (int i = 0; i < inputs; i++)
         {
             // [-1, 1), technically
-            Weights[i] = random is not null ? random.NextDouble() * 2 - 1 : 0.5;
+            Weights[i] = activationType.GetInitialValue(inputs, random);
         }
-        Bias = random is not null ? random.NextDouble() * 2 - 1 : 0;
+        Bias = activationType.GetInitialValue(inputs, random, 0);
 
         ActivationType = activationType;
         ActivationFunction = ActivationFunctions.GetActivationFunction(activationType);
@@ -169,6 +192,19 @@ public class Neuron
         }
         sum += Bias;
         Value = ActivationFunction(sum);
+
+        if (double.IsNaN(Value))
+        {
+            Console.WriteLine($"NaN detected! Inputs: {string.Join(", ", inputs)}");
+            throw new Exception("NaN detected!");
+        }
+
+        if (double.IsInfinity(Value))
+        {
+            Console.WriteLine($"Infinity detected! Inputs: {string.Join(", ", inputs)}");
+            throw new Exception("Infinity detected!");
+        }
+
         return Value;
     }
 
@@ -218,6 +254,8 @@ public class Layer
 public class Perceptron
 {
     public List<Layer> Layers { get; set; } = [];
+
+    public bool Debug { get; init; } = false;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Perceptron"/> class.
@@ -281,6 +319,14 @@ public class Perceptron
             for (int i = 0; i < layer.Neurons.Count; i++)
             {
                 outputs[i] = layer.Neurons[i].Calculate(current);
+
+                // check for numerical instability
+                if (double.IsNaN(outputs[i]) || double.IsInfinity(outputs[i]))
+                {
+                    throw new Exception(
+                        $"Numerical instability detected in layer {i}: {outputs[i]}"
+                    );
+                }
             }
             current = outputs;
         }
@@ -311,6 +357,9 @@ public class Perceptron
     {
         for (int epoch = 0; epoch < epochs; epoch++)
         {
+            if (Debug && epoch % (epochs / 10) == 0)
+                Console.Write($"Epoch {epoch + 1}/{epochs}");
+
             foreach (var (inputs, targets) in data)
             {
                 // 1. feed forward to get outputs
@@ -359,6 +408,9 @@ public class Perceptron
                     }
                 }
             }
+
+            if (Debug && epoch % (epochs / 10) == 0)
+                Console.Write("\r");
         }
     }
 
@@ -367,4 +419,7 @@ public class Perceptron
     /// </summary>
     public void Reset(Random? random = null) =>
         Layers.ForEach(l => l.Neurons.ForEach(n => n.Reset(random)));
+
+    public List<List<(double[] weights, double bias)>> Export() =>
+        [.. Layers.Select(l => l.Neurons.Select(n => (n.Weights, n.Bias)).ToList())];
 }
