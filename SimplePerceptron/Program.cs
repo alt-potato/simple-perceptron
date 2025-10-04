@@ -1,10 +1,12 @@
-﻿using System.Security.Cryptography;
-using static SimplePerceptron.ProblemDefinitions;
+﻿using static SimplePerceptron.ProblemDefinitions;
 
 namespace SimplePerceptron;
 
 public class Program
 {
+    static string OUTPUT_OVERRIDE { get; set; } = "training";
+    static string OUTPUT_MODE { get; set; } = "invalid";
+
     public static void Main(string[] args)
     {
         if (args.Length < 1)
@@ -21,7 +23,8 @@ public class Program
             return;
         }
 
-        RunProblem(value);
+        Random random = new();
+        RunProblem(value, random);
     }
 
     public static void RunProblem(PerceptronProblemConfig config, Random? random = null)
@@ -33,11 +36,14 @@ public class Program
 
         // testing
         // uses training data and testing data
-        foreach (
-            (double[] inputs, double[] targets) in config.TrainingData.Concat(
-                config.TestingData ?? []
-            )
-        )
+        List<(double[] inputs, double[] targets)> testData = OUTPUT_OVERRIDE switch
+        {
+            "training" => config.TrainingData,
+            "testing" => config.TestingData ?? [],
+            "both" => [.. config.TrainingData, .. config.TestingData ?? []],
+            _ => config.TestingData ?? config.TrainingData,
+        };
+        foreach ((double[] inputs, double[] targets) in testData)
         {
             double[] rawResult = perceptron.Predict(inputs);
             object[]? finalResult = config.Selector is null
@@ -71,12 +77,24 @@ public class Program
                 string finalResultString = finalResult is null
                     ? ""
                     : $"Actual: {string.Join(" ", finalResult)}, ";
-                string targetString = $"Predicted: {string.Join(" ", targets)}";
+                string targetString = $"Expected: {string.Join(" ", targets)}";
 
                 outputString = $"{rawResultString} ({finalResultString}{targetString})";
             }
 
-            Console.WriteLine($"{inputString} -> {outputString}");
+            switch (OUTPUT_MODE)
+            {
+                case "invalid":
+                    if (
+                        finalResult is not null
+                        && string.Join(" ", finalResult) != string.Join(" ", targets)
+                    )
+                        Console.WriteLine($"{inputString} -> {outputString}");
+                    break;
+                default:
+                    Console.WriteLine($"{inputString} -> {outputString}");
+                    break;
+            }
         }
     }
 }
