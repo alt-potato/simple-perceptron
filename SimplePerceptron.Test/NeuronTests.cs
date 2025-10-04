@@ -106,4 +106,150 @@ public class NeuronTests
         // Assert
         Assert.Equal(expectedDelta, hiddenNeuron.Delta, 5);
     }
+
+    [Theory]
+    [InlineData(5.0, 0.0, 10.0, 5.0)] // Value within range
+    [InlineData(-2.0, 0.0, 10.0, 0.0)] // Value below min
+    [InlineData(12.0, 0.0, 10.0, 10.0)] // Value above max
+    [InlineData(5.0, -10.0, 10.0, 5.0)] // Value within negative range
+    [InlineData(-15.0, -10.0, 10.0, -10.0)] // Value below negative min
+    [InlineData(15.0, -10.0, 10.0, 10.0)] // Value above negative max
+    public void ApplyClipping_MinMax_ShouldClipCorrectly(
+        double value,
+        double min,
+        double max,
+        double expected
+    )
+    {
+        // Act
+        double result = value.ApplyClipping(min, max);
+
+        // Assert
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData(5.0, 10.0, 5.0)] // Value within magnitude
+    [InlineData(12.0, 10.0, 10.0)] // Value above positive magnitude
+    [InlineData(-12.0, 10.0, -10.0)] // Value below negative magnitude
+    [InlineData(5.0, null, 5.0)] // Null magnitude, no clipping
+    public void ApplyClipping_Magnitude_ShouldClipCorrectly(
+        double value,
+        double? magnitude,
+        double expected
+    )
+    {
+        // Act
+        double result = value.ApplyClipping(magnitude);
+
+        // Assert
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void ApplyGradient_ShouldCalculateAndClipDelta()
+    {
+        // Arrange
+        var neuron = new Neuron([1], 0, ActivationFunctions.FunctionType.Sigmoid)
+        {
+            Value = 0.7, // Derivative for Sigmoid at 0.7 is 0.7 * (1 - 0.7) = 0.21
+        };
+        double error = 0.5; // error * derivative = 0.5 * 0.21 = 0.105
+        double gradientThreshold = 0.05; // Should clip to 0.05
+
+        // Act
+        double delta = neuron.ApplyGradient(error, gradientThreshold);
+
+        // Assert
+        Assert.Equal(gradientThreshold, delta, 5); // Clipped to threshold
+    }
+
+    [Fact]
+    public void ApplyGradient_ShouldCalculateDelta_WithoutClipping()
+    {
+        // Arrange
+        var neuron = new Neuron([1], 0, ActivationFunctions.FunctionType.Sigmoid)
+        {
+            Value = 0.7, // Derivative for Sigmoid at 0.7 is 0.7 * (1 - 0.7) = 0.21
+        };
+        double error = 0.5; // error * derivative = 0.5 * 0.21 = 0.105
+        double? gradientThreshold = null; // No clipping
+
+        // Act
+        double delta = neuron.ApplyGradient(error, gradientThreshold);
+
+        // Assert
+        Assert.Equal(0.105, delta, 5); // Not clipped
+    }
+
+    [Fact]
+    public void CalculateSetDelta_ForOutputNeuron_ShouldSetCorrectDelta_WithClipping()
+    {
+        // Arrange
+        var neuron = new Neuron([1], 0, ActivationFunctions.FunctionType.Sigmoid)
+        {
+            Value = 0.7, // Assume this is the output after feedforward
+        };
+        var target = 1.0;
+        // error = 1.0 - 0.7 = 0.3
+        // derivative = value * (1 - value) = 0.7 * (1 - 0.7) = 0.7 * 0.3 = 0.21
+        // delta before clipping = error * derivative = 0.3 * 0.21 = 0.063
+        double gradientThreshold = 0.05; // Should clip to 0.05
+
+        // Act
+        neuron.CalculateSetDelta(target, gradientThreshold);
+
+        // Assert
+        Assert.Equal(gradientThreshold, neuron.Delta, 5);
+    }
+
+    [Fact]
+    public void CalculateSetDelta_ForHiddenNeuron_ShouldSetCorrectDelta_WithClipping()
+    {
+        // Arrange
+        // Neuron in the hidden layer we are testing
+        var hiddenNeuron = new Neuron([1], 0, ActivationFunctions.FunctionType.Sigmoid)
+        {
+            Value = 0.6, // Assume this is the output after feedforward
+        };
+        var hiddenNeuronIndex = 0;
+
+        // The next layer (output layer)
+        var outputNeuron1 = new Neuron([0.5], 0) { Delta = 0.1 }; // Weight from hiddenNeuron is 0.5
+        var outputNeuron2 = new Neuron([-0.2], 0) { Delta = 0.2 }; // Weight from hiddenNeuron is -0.2
+        var nextLayer = new Layer { Neurons = [outputNeuron1, outputNeuron2] };
+
+        // error = sum(weight * delta) = (0.5 * 0.1) + (-0.2 * 0.2) = 0.05 - 0.04 = 0.01
+        // derivative = value * (1 - value) = 0.6 * (1 - 0.6) = 0.6 * 0.4 = 0.24
+        // delta before clipping = error * derivative = 0.01 * 0.24 = 0.0024
+        double gradientThreshold = 0.001; // Should clip to 0.001
+
+        // Act
+        hiddenNeuron.CalculateSetDelta(nextLayer, hiddenNeuronIndex, gradientThreshold);
+
+        // Assert
+        Assert.Equal(gradientThreshold, hiddenNeuron.Delta, 5);
+    }
+
+    [Fact]
+    public void Neuron_Reset_ShouldReinitializeWeightsAndBias()
+    {
+        // Arrange
+        var random = new Random(67);
+        var neuron = new Neuron(2, random);
+        var initialWeight = neuron.Weights[0];
+        var initialBias = neuron.Bias;
+
+        // Act
+        random = new Random(76); // Reset random seed for predictable new values
+        neuron.Reset(random);
+
+        // Assert
+        Assert.NotEqual(initialWeight, neuron.Weights[0]);
+        Assert.NotEqual(initialBias, neuron.Bias);
+        // Verify that new values are within the expected random range [-1, 1)
+        Assert.InRange(neuron.Weights[0], -1.0, 1.0);
+        Assert.InRange(neuron.Bias, -1.0, 1.0);
+        Assert.Equal(0, neuron.Value); // Value should be reset to 0
+    }
 }

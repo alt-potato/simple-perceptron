@@ -36,22 +36,70 @@ public static class ActivationFunctions
             _ => 1,
         };
 
+    /// <summary>
+    /// Gets the derivative of the activation function of the neuron at its current value.
+    /// If the activation function cannot be derived, it will return 1.
+    /// </summary>
+    /// <param name="neuron">The neuron for which the derivative should be calculated.</param>
+    /// <returns>The derivative of the activation function at the neuron's current value.</returns>
     public static double GetDerivative(this Neuron neuron) =>
         GetDerivative(neuron.ActivationType, neuron.Value);
 
     /// <summary>
+    /// Clips a value between a minimum and maximum value.
+    /// </summary>
+    public static double ApplyClipping(
+        this double value,
+        double min = double.MinValue,
+        double max = double.MaxValue
+    ) => Math.Min(Math.Max(value, min), max);
+
+    /// <summary>
+    /// Clips the absolute value of a value below a magnitude. If magnitude is null, the value will not be clipped.
+    /// </summary>
+    public static double ApplyClipping(this double value, double? magnitude) =>
+        magnitude is null ? value : value.ApplyClipping((double)-magnitude, (double)magnitude);
+
+    /// <summary>
+    /// Applies the gradient of the loss function to a neuron's delta.
+    /// If a gradient threshold is provided, it will be used to clip the absolute value of the delta.
+    /// </summary>
+    /// <param name="neuron">The neuron to which the gradient should be applied.</param>
+    /// <param name="error">The error of the loss function with respect to the neuron's output.</param>
+    /// <param name="gradientThreshold">An optional value to clip the absolute value of the delta.</param>
+    /// <returns>The (optionally clipped) delta value.</returns>
+    public static double ApplyGradient(
+        this Neuron neuron,
+        double error,
+        double? gradientThreshold = null
+    )
+    {
+        double delta = error * neuron.GetDerivative();
+        return delta.ApplyClipping(gradientThreshold);
+    }
+
+    /// <summary>
     /// Calculates and sets the delta for a neuron based on its distance from a target value.
     /// </summary>
-    public static void CalculateSetDelta(this Neuron neuron, double target)
+    public static void CalculateSetDelta(
+        this Neuron neuron,
+        double target,
+        double? gradientThreshold = null
+    )
     {
         double error = target - neuron.Value;
-        neuron.Delta = error * neuron.GetDerivative();
+        neuron.Delta = neuron.ApplyGradient(error, gradientThreshold);
     }
 
     /// <summary>
     /// Calculates and sets the delta for a neuron based on the next layer.
     /// </summary>
-    public static void CalculateSetDelta(this Neuron neuron, Layer nextLayer, int neuronIndex)
+    public static void CalculateSetDelta(
+        this Neuron neuron,
+        Layer nextLayer,
+        int neuronIndex,
+        double? gradientThreshold = null
+    )
     {
         // sum the deltas from the next layer, weighted by the corresponding weights
         double error = 0;
@@ -60,7 +108,7 @@ public static class ActivationFunctions
             error += connectedNeuron.Weights[neuronIndex] * connectedNeuron.Delta;
         }
 
-        neuron.Delta = error * neuron.GetDerivative();
+        neuron.Delta = neuron.ApplyGradient(error, gradientThreshold);
     }
 }
 
@@ -204,9 +252,7 @@ public class Perceptron
             ActivationFunctions.FunctionType activationType = activationFunctions.Length switch
             {
                 1 => activationFunctions[0], // if only one, use given activation function
-                2 => i == structure.Length - 1
-                    ? activationFunctions[0]
-                    : activationFunctions[i - 1], // if only two, use first for hidden layers and last for output layer
+                2 => i < structure.Length - 1 ? activationFunctions[0] : activationFunctions[1], // if only two, use first for hidden layers and last for output layer
                 > 2 => activationFunctions[i - 1], // otherwise, use the one corresponding to the current layer
                 _ => ActivationFunctions.FunctionType.Linear, // default to linear if not defined
             };
@@ -257,7 +303,10 @@ public class Perceptron
     public void Train(
         List<(double[] inputs, double[] targets)> data,
         double learningRate = 0.1,
-        int epochs = 1000
+        int epochs = 1000,
+        double? gradientThreshold = null, // max absolute value of the gradient
+        double minWeightValue = double.MinValue, // min value of a neuron weight
+        double maxWeightValue = double.MaxValue // max value of a neuron weight
     )
     {
         for (int epoch = 0; epoch < epochs; epoch++)
@@ -271,7 +320,7 @@ public class Perceptron
                 Layer outputLayer = Layers.Last();
                 for (int i = 0; i < outputLayer.Neurons.Count; i++)
                 {
-                    outputLayer.Neurons[i].CalculateSetDelta(targets[i]);
+                    outputLayer.Neurons[i].CalculateSetDelta(targets[i], gradientThreshold);
                 }
 
                 // 3. backpropagate deltas to hidden layers (skip output layer)
@@ -284,7 +333,7 @@ public class Perceptron
                     {
                         Neuron neuron = layer.Neurons[j];
 
-                        neuron.CalculateSetDelta(nextLayer, j);
+                        neuron.CalculateSetDelta(nextLayer, j, gradientThreshold);
                     }
                 }
 
@@ -299,9 +348,14 @@ public class Perceptron
                     {
                         for (int j = 0; j < neuron.Weights.Length; j++)
                         {
-                            neuron.Weights[j] += learningRate * neuron.Delta * layerInputs[j];
+                            neuron.Weights[j] = (
+                                neuron.Weights[j] + learningRate * neuron.Delta * layerInputs[j]
+                            ).ApplyClipping(minWeightValue, maxWeightValue);
                         }
-                        neuron.Bias += learningRate * neuron.Delta;
+                        neuron.Bias = (neuron.Bias + learningRate * neuron.Delta).ApplyClipping(
+                            minWeightValue,
+                            maxWeightValue
+                        );
                     }
                 }
             }
