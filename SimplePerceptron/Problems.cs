@@ -18,6 +18,8 @@ public static class ProblemDefinitions
     )
     {
         public Type OutputType { get; init; } = typeof(double);
+        public double Score { get; set; } = double.MaxValue;
+        public Perceptron.PerceptronState? ExportedState { get; set; } = null;
     };
 
     public static readonly Dictionary<string, PerceptronProblemConfig> Problems = new()
@@ -49,10 +51,10 @@ public static class ProblemDefinitions
         {
             "a^2+b",
             new PerceptronProblemConfig(
-                Structure: [2, 8, 8, 1], // [2, .. Enumerable.Repeat(100, 50), 1],
+                Structure: [2, 8, 4, 1], // [2, .. Enumerable.Repeat(100, 50), 1],
                 Activations:
                 [
-                    ActivationFunctions.FunctionType.LeakyReLU,
+                    ActivationFunctions.FunctionType.Tanh,
                     ActivationFunctions.FunctionType.Sigmoid,
                 ],
                 TrainingData:
@@ -75,8 +77,8 @@ public static class ProblemDefinitions
                     ([6, 2], [38]),
                     ([9, 3], [84]),
                 ],
-                LearningRate: 1e-4,
-                Epochs: 20000,
+                LearningRate: 0.161836,
+                Epochs: 14051,
                 GradientThreshold: 0.1,
                 MinWeightValue: -100,
                 MaxWeightValue: 100,

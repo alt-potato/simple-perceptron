@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace SimplePerceptron.Test;
 
 public class PerceptronTests
@@ -491,10 +493,76 @@ public class PerceptronTests
         }
 
         // Assert that normalization parameters were also restored
-        var (_, inputMin, inputMax, targetMin, targetMax) = newPerceptron.Export();
-        Assert.Equal(exportedState.inputMin, inputMin);
-        Assert.Equal(exportedState.inputMax, inputMax);
-        Assert.Equal(exportedState.targetMin, targetMin);
-        Assert.Equal(exportedState.targetMax, targetMax);
+        var importedState = newPerceptron.Export();
+        Assert.Equal(exportedState.InputMin, importedState.InputMin);
+        Assert.Equal(exportedState.InputMax, importedState.InputMax);
+        Assert.Equal(exportedState.TargetMin, importedState.TargetMin);
+        Assert.Equal(exportedState.TargetMax, importedState.TargetMax);
+    }
+
+    [Fact]
+    public void Import_FromJsonString_ShouldReplicateState()
+    {
+        // Arrange
+        int[] structure = [2, 3, 1];
+        var random1 = new Random(88);
+        var trainedPerceptron = new Perceptron(
+            structure,
+            random1,
+            ActivationFunctions.FunctionType.Sigmoid
+        );
+
+        List<(double[] inputs, double[] targets)> data =
+        [
+            ([0, 0], [0]),
+            ([0, 1], [1]),
+            ([1, 0], [1]),
+            ([1, 1], [0]),
+        ];
+        trainedPerceptron.Train(data, 0.1, 100);
+
+        // Export the state and serialize it to JSON
+        var exportedState = trainedPerceptron.Export();
+        var jsonState = JsonSerializer.Serialize(exportedState);
+
+        // Create a new, untrained perceptron with a different seed
+        var random2 = new Random(101);
+        var newPerceptron = new Perceptron(
+            structure,
+            random2,
+            ActivationFunctions.FunctionType.Sigmoid
+        );
+
+        // Act
+        newPerceptron.Import(jsonState);
+
+        // Assert
+        // The new perceptron's state should now match the original exported state
+        var importedState = newPerceptron.Export();
+        Assert.Equal(exportedState.InputMin, importedState.InputMin);
+        Assert.Equal(exportedState.InputMax, importedState.InputMax);
+        Assert.Equal(exportedState.TargetMin, importedState.TargetMin);
+        Assert.Equal(exportedState.TargetMax, importedState.TargetMax);
+
+        // Verify weights and biases are identical
+        for (int i = 0; i < trainedPerceptron.Layers.Count; i++)
+        {
+            for (int j = 0; j < trainedPerceptron.Layers[i].Neurons.Count; j++)
+            {
+                Assert.Equal(
+                    trainedPerceptron.Layers[i].Neurons[j].Weights,
+                    newPerceptron.Layers[i].Neurons[j].Weights
+                );
+                Assert.Equal(
+                    trainedPerceptron.Layers[i].Neurons[j].Bias,
+                    newPerceptron.Layers[i].Neurons[j].Bias
+                );
+            }
+        }
+
+        // Verify functional equivalence by checking predictions
+        var originalPrediction = trainedPerceptron.Predict([1, 0]);
+        var newPrediction = newPerceptron.Predict([1, 0]);
+        Assert.Equal(originalPrediction, newPrediction);
     }
 }

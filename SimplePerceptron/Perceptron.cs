@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace SimplePerceptron;
 
 public static class ActivationFunctions
@@ -278,6 +280,19 @@ public class Layer
 /// </summary>
 public class Perceptron
 {
+    public record NeuronState(double[] Weights, double Bias);
+
+    /// <summary>
+    /// Represents the state of a Perceptron, and can be used to save and load the current state.
+    /// </summary>
+    public record PerceptronState(
+        List<List<NeuronState>> Layers,
+        double[]? InputMin,
+        double[]? InputMax,
+        double[]? TargetMin,
+        double[]? TargetMax
+    );
+
     public List<Layer> Layers { get; set; } = [];
     private double[]? _inputMin;
     private double[]? _inputMax;
@@ -416,7 +431,8 @@ public class Perceptron
         int epochs = 1000,
         double? gradientThreshold = null, // max absolute value of the gradient
         double minWeightValue = double.MinValue, // min value of a neuron weight
-        double maxWeightValue = double.MaxValue // max value of a neuron weight
+        double maxWeightValue = double.MaxValue, // max value of a neuron weight
+        CancellationToken cancellationToken = default
     )
     {
         if (data == null || data.Count == 0)
@@ -455,6 +471,8 @@ public class Perceptron
 
         for (int epoch = 0; epoch < epochs; epoch++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (Debug && (epoch == 0 || (epoch + 1) % (epochs / 100) == 0))
                 Console.Write($"Epoch {epoch + 1}/{epochs}\r");
 
@@ -522,15 +540,13 @@ public class Perceptron
     /// Exports the current state of the perceptron, including weights, biases, and normalization parameters.
     /// </summary>
     /// <returns>A tuple containing the state of the perceptron.</returns>
-    public (
-        List<List<(double[] weights, double bias)>> layers,
-        double[]? inputMin,
-        double[]? inputMax,
-        double[]? targetMin,
-        double[]? targetMax
-    ) Export() =>
-        (
-            Layers.Select(l => l.Neurons.Select(n => (n.Weights, n.Bias)).ToList()).ToList(),
+    public PerceptronState Export() =>
+        new(
+            [
+                .. Layers.Select(l =>
+                    l.Neurons.Select(n => new NeuronState(n.Weights, n.Bias)).ToList()
+                ),
+            ],
             _inputMin,
             _inputMax,
             _targetMin,
@@ -541,46 +557,51 @@ public class Perceptron
     /// Imports a previously exported state into the perceptron.
     /// </summary>
     /// <param name="state">The perceptron state to import.</param>
-    public void Import(
-        (
-            List<List<(double[] weights, double bias)>> layers,
-            double[]? inputMin,
-            double[]? inputMax,
-            double[]? targetMin,
-            double[]? targetMax
-        ) state
-    )
+    public void Import(PerceptronState state)
     {
-        var (layersData, inputMin, inputMax, targetMin, targetMax) = state;
-
-        if (layersData.Count != Layers.Count)
+        if (state.Layers.Count != Layers.Count)
             throw new ArgumentException("Import data does not match the number of layers.");
 
         for (int i = 0; i < Layers.Count; i++)
         {
-            if (layersData[i].Count != Layers[i].Neurons.Count)
+            if (state.Layers[i].Count != Layers[i].Neurons.Count)
                 throw new ArgumentException(
                     $"Import data for layer {i} does not match the number of neurons."
                 );
 
             for (int j = 0; j < Layers[i].Neurons.Count; j++)
             {
-                var neuronData = layersData[i][j];
+                var neuronData = state.Layers[i][j];
                 var neuron = Layers[i].Neurons[j];
 
-                if (neuronData.weights.Length != neuron.Weights.Length)
+                if (neuronData.Weights.Length != neuron.Weights.Length)
                     throw new ArgumentException(
                         $"Import data for neuron {j} in layer {i} does not match the number of weights."
                     );
 
-                neuron.Weights = (double[])neuronData.weights.Clone();
-                neuron.Bias = neuronData.bias;
+                neuron.Weights = (double[])neuronData.Weights.Clone();
+                neuron.Bias = neuronData.Bias;
             }
         }
 
-        _inputMin = inputMin;
-        _inputMax = inputMax;
-        _targetMin = targetMin;
-        _targetMax = targetMax;
+        _inputMin = state.InputMin;
+        _inputMax = state.InputMax;
+        _targetMin = state.TargetMin;
+        _targetMax = state.TargetMax;
+    }
+
+    /// <summary>
+    /// Imports a previously exported state from a JSON string into the perceptron.
+    /// </summary>
+    /// <param name="jsonState">The JSON string representing the perceptron state.</param>
+    public void Import(string jsonState)
+    {
+        PerceptronState state =
+            JsonSerializer.Deserialize<PerceptronState>(jsonState)
+            ?? throw new ArgumentException(
+                "Failed to deserialize the provided JSON state.",
+                nameof(jsonState)
+            );
+        Import(state);
     }
 }
