@@ -53,7 +53,7 @@ public static class ProblemDefinitions
                 Activations:
                 [
                     ActivationFunctions.FunctionType.LeakyReLU,
-                    ActivationFunctions.FunctionType.Linear,
+                    ActivationFunctions.FunctionType.Sigmoid,
                 ],
                 TrainingData:
                 [
@@ -75,9 +75,9 @@ public static class ProblemDefinitions
                     ([6, 2], [38]),
                     ([9, 3], [84]),
                 ],
-                LearningRate: 5e-4,
-                Epochs: 200000,
-                GradientThreshold: 1,
+                LearningRate: 1e-4,
+                Epochs: 20000,
+                GradientThreshold: 0.1,
                 MinWeightValue: -100,
                 MaxWeightValue: 100,
                 Selector: x => (int)(x + 0.5),

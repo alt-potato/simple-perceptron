@@ -279,6 +279,10 @@ public class Layer
 public class Perceptron
 {
     public List<Layer> Layers { get; set; } = [];
+    private double[]? _inputMin;
+    private double[]? _inputMax;
+    private double[]? _targetMin;
+    private double[]? _targetMax;
 
     public bool Debug { get; init; } = false;
 
@@ -331,6 +335,35 @@ public class Perceptron
     }
 
     /// <summary>
+    /// Normalizes the given data to the range [0, 1].
+    /// </summary>
+    private static double[] Normalize(double[] data, double[] min, double[] max)
+    {
+        var result = new double[data.Length];
+        for (int i = 0; i < data.Length; i++)
+        {
+            double range = max[i] - min[i];
+            // Avoid division by zero if all values in a feature are the same
+            result[i] = range == 0 ? 0 : (data[i] - min[i]) / range;
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Denormalizes the given data from the range [0, 1] to the original range.
+    /// </summary>
+    private static double[] Denormalize(double[] data, double[] min, double[] max)
+    {
+        var result = new double[data.Length];
+        for (int i = 0; i < data.Length; i++)
+        {
+            double range = max[i] - min[i];
+            result[i] = data[i] * range + min[i];
+        }
+        return result;
+    }
+
+    /// <summary>
     /// Feeds the given inputs through the network and returns the outputs of the last layer.
     /// </summary>
     /// <param name="inputs">The inputs to feed through the network.</param>
@@ -341,18 +374,13 @@ public class Perceptron
         foreach (Layer layer in Layers)
         {
             double[] outputs = new double[layer.Neurons.Count];
-            for (int i = 0; i < layer.Neurons.Count; i++)
-            {
-                outputs[i] = layer.Neurons[i].Calculate(current);
 
-                // check for numerical instability
-                if (double.IsNaN(outputs[i]) || double.IsInfinity(outputs[i]))
-                {
-                    throw new Exception(
-                        $"Numerical instability detected in layer {i}: {outputs[i]}"
-                    );
-                }
-            }
+            Parallel.For(
+                0,
+                layer.Neurons.Count,
+                i => outputs[i] = layer.Neurons[i].Calculate(current)
+            );
+
             current = outputs;
         }
         return current;
@@ -361,11 +389,22 @@ public class Perceptron
     /// <summary>
     /// Predicts the output of the network for the given inputs.
     /// </summary>
-    public double[] Predict(double[] inputs) => FeedForward(inputs);
+    public double[] Predict(double[] inputs)
+    {
+        if (_inputMin is null || _inputMax is null || _targetMin is null || _targetMax is null)
+            throw new InvalidOperationException(
+                "The network has not been trained yet. Please call the Train method first."
+            );
+
+        double[] normalizedInputs = Normalize(inputs, _inputMin, _inputMax);
+        double[] outputs = FeedForward(normalizedInputs);
+
+        return Denormalize(outputs, _targetMin, _targetMax);
+    }
 
     public T[] Predict<T>(double[] inputs, Func<double, T> selector)
     {
-        return [.. FeedForward(inputs).Select(selector)];
+        return [.. Predict(inputs).Select(selector)];
     }
 
     /// <summary>
@@ -380,12 +419,46 @@ public class Perceptron
         double maxWeightValue = double.MaxValue // max value of a neuron weight
     )
     {
+        if (data == null || data.Count == 0)
+            return;
+
+        // 0. find min/max for normalization
+        int numInputs = data[0].inputs.Length;
+        _inputMin = new double[numInputs];
+        _inputMax = new double[numInputs];
+        for (int i = 0; i < numInputs; i++)
+        {
+            _inputMin[i] = data.Min(d => d.inputs[i]);
+            _inputMax[i] = data.Max(d => d.inputs[i]);
+        }
+
+        int numTargets = data[0].targets.Length;
+        _targetMin = new double[numTargets];
+        _targetMax = new double[numTargets];
+        for (int i = 0; i < numTargets; i++)
+        {
+            _targetMin[i] = data.Min(d => d.targets[i]);
+            _targetMax[i] = data.Max(d => d.targets[i]);
+        }
+
+        List<(double[] inputs, double[] targets)> trainingData = data;
+        if (data.Count > 1)
+            trainingData =
+            [
+                .. data.Select(d =>
+                    (
+                        inputs: Normalize(d.inputs, _inputMin, _inputMax),
+                        targets: Normalize(d.targets, _targetMin, _targetMax)
+                    )
+                ),
+            ];
+
         for (int epoch = 0; epoch < epochs; epoch++)
         {
             if (Debug && (epoch == 0 || (epoch + 1) % (epochs / 100) == 0))
                 Console.Write($"Epoch {epoch + 1}/{epochs}\r");
 
-            foreach (var (inputs, targets) in data)
+            foreach (var (inputs, targets) in trainingData)
             {
                 // 1. feed forward to get outputs
                 double[] outputs = FeedForward(inputs);
@@ -418,19 +491,22 @@ public class Perceptron
                     double[] layerInputs =
                         i == 0 ? inputs : [.. Layers[i - 1].Neurons.Select(n => n.Value)];
 
-                    foreach (Neuron neuron in layer.Neurons)
-                    {
-                        for (int j = 0; j < neuron.Weights.Length; j++)
+                    Parallel.ForEach(
+                        layer.Neurons,
+                        neuron =>
                         {
-                            neuron.Weights[j] = (
-                                neuron.Weights[j] + learningRate * neuron.Delta * layerInputs[j]
-                            ).ApplyClipping(minWeightValue, maxWeightValue);
+                            for (int j = 0; j < neuron.Weights.Length; j++)
+                            {
+                                neuron.Weights[j] = (
+                                    neuron.Weights[j] + learningRate * neuron.Delta * layerInputs[j]
+                                ).ApplyClipping(minWeightValue, maxWeightValue);
+                            }
+                            neuron.Bias = (neuron.Bias + learningRate * neuron.Delta).ApplyClipping(
+                                minWeightValue,
+                                maxWeightValue
+                            );
                         }
-                        neuron.Bias = (neuron.Bias + learningRate * neuron.Delta).ApplyClipping(
-                            minWeightValue,
-                            maxWeightValue
-                        );
-                    }
+                    );
                 }
             }
         }
@@ -442,6 +518,69 @@ public class Perceptron
     public void Reset(Random? random = null) =>
         Layers.ForEach(l => l.Neurons.ForEach(n => n.Reset(random)));
 
-    public List<List<(double[] weights, double bias)>> Export() =>
-        [.. Layers.Select(l => l.Neurons.Select(n => (n.Weights, n.Bias)).ToList())];
+    /// <summary>
+    /// Exports the current state of the perceptron, including weights, biases, and normalization parameters.
+    /// </summary>
+    /// <returns>A tuple containing the state of the perceptron.</returns>
+    public (
+        List<List<(double[] weights, double bias)>> layers,
+        double[]? inputMin,
+        double[]? inputMax,
+        double[]? targetMin,
+        double[]? targetMax
+    ) Export() =>
+        (
+            Layers.Select(l => l.Neurons.Select(n => (n.Weights, n.Bias)).ToList()).ToList(),
+            _inputMin,
+            _inputMax,
+            _targetMin,
+            _targetMax
+        );
+
+    /// <summary>
+    /// Imports a previously exported state into the perceptron.
+    /// </summary>
+    /// <param name="state">The perceptron state to import.</param>
+    public void Import(
+        (
+            List<List<(double[] weights, double bias)>> layers,
+            double[]? inputMin,
+            double[]? inputMax,
+            double[]? targetMin,
+            double[]? targetMax
+        ) state
+    )
+    {
+        var (layersData, inputMin, inputMax, targetMin, targetMax) = state;
+
+        if (layersData.Count != Layers.Count)
+            throw new ArgumentException("Import data does not match the number of layers.");
+
+        for (int i = 0; i < Layers.Count; i++)
+        {
+            if (layersData[i].Count != Layers[i].Neurons.Count)
+                throw new ArgumentException(
+                    $"Import data for layer {i} does not match the number of neurons."
+                );
+
+            for (int j = 0; j < Layers[i].Neurons.Count; j++)
+            {
+                var neuronData = layersData[i][j];
+                var neuron = Layers[i].Neurons[j];
+
+                if (neuronData.weights.Length != neuron.Weights.Length)
+                    throw new ArgumentException(
+                        $"Import data for neuron {j} in layer {i} does not match the number of weights."
+                    );
+
+                neuron.Weights = (double[])neuronData.weights.Clone();
+                neuron.Bias = neuronData.bias;
+            }
+        }
+
+        _inputMin = inputMin;
+        _inputMax = inputMax;
+        _targetMin = targetMin;
+        _targetMax = targetMax;
+    }
 }
