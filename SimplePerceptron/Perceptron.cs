@@ -13,9 +13,25 @@ public static class ActivationFunctions
         Tanh,
     };
 
+    private const double ExpMax = 709; // max safe value for Math.Exp(x)
+
+    /// <summary>
+    /// A safe version of Math.Exp, to avoid inf and NaN
+    /// </summary>
+    /// <param name="x"></param>
+    /// <returns></returns>
+    private static double SafeExp(double x)
+    {
+        if (x > ExpMax)
+            return double.MaxValue;
+        if (x < -ExpMax)
+            return 0;
+        return Math.Exp(x);
+    }
+
     public static Func<double, double> GetActivationFunction(
         FunctionType type,
-        double alpha = 0.01
+        double alpha = 0.1
     ) =>
         type switch
         {
@@ -23,14 +39,14 @@ public static class ActivationFunctions
             FunctionType.Step => x => x > 0 ? 1 : 0,
             FunctionType.Signum => x => Math.Sign(x),
             FunctionType.Sigmoid => x =>
-                x >= 0 ? 1 / (1 + Math.Exp(-x)) : Math.Exp(x) / (1 + Math.Exp(x)),
+                x >= 0 ? 1 / (1 + SafeExp(-x)) : SafeExp(x) / (1 + SafeExp(x)),
             FunctionType.ReLU => x => Math.Max(0, x),
             FunctionType.LeakyReLU => x => Math.Max(alpha * x, x),
             FunctionType.Tanh => Math.Tanh,
             _ => throw new NotImplementedException(),
         };
 
-    public static double GetDerivative(FunctionType type, double x, double alpha = 0.01) =>
+    public static double GetDerivative(FunctionType type, double x, double alpha = 0.1) =>
         type switch
         {
             FunctionType.Sigmoid => x * (1 - x),
@@ -185,12 +201,21 @@ public class Neuron
     /// </summary>
     public double Calculate(double[] inputs)
     {
+        if (inputs.Any(double.IsNaN))
+            throw new Exception($"NaN detected in inputs! {string.Join(", ", inputs)}");
+        if (inputs.Any(double.IsInfinity))
+            throw new Exception($"Infinity detected in inputs! {string.Join(", ", inputs)}");
+
         double sum = 0;
         for (int i = 0; i < inputs.Length; i++)
         {
+            if (double.IsNaN(Weights[i]) || double.IsInfinity(Weights[i]))
+                throw new Exception($"Invalid weight at index {i}: {Weights[i]}");
+
             sum += inputs[i] * Weights[i];
         }
         sum += Bias;
+        sum = sum.ApplyClipping(-1e6, 1e6); // prevent overflow in activation functions
         Value = ActivationFunction(sum);
 
         if (double.IsNaN(Value))
@@ -357,8 +382,8 @@ public class Perceptron
     {
         for (int epoch = 0; epoch < epochs; epoch++)
         {
-            if (Debug && epoch % (epochs / 10) == 0)
-                Console.Write($"Epoch {epoch + 1}/{epochs}");
+            if (Debug && (epoch == 0 || (epoch + 1) % (epochs / 100) == 0))
+                Console.Write($"Epoch {epoch + 1}/{epochs}\r");
 
             foreach (var (inputs, targets) in data)
             {
@@ -408,9 +433,6 @@ public class Perceptron
                     }
                 }
             }
-
-            if (Debug && epoch % (epochs / 10) == 0)
-                Console.Write("\r");
         }
     }
 

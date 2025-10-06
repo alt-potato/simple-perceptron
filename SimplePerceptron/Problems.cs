@@ -75,7 +75,7 @@ public static class ProblemDefinitions
                     ([6, 2], [38]),
                     ([9, 3], [84]),
                 ],
-                LearningRate: 1e-4,
+                LearningRate: 5e-4,
                 Epochs: 200000,
                 GradientThreshold: 1,
                 MinWeightValue: -100,
